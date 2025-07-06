@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
+import { useWishlist } from '../context/WishlistContext';
 import { useCallback } from 'react';
 import { toast } from 'react-toastify';
 import axios from 'axios';
@@ -10,6 +11,7 @@ const Header = () => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [username, setUsername] = useState(null);
     const { cartCount } = useCart();
+    const { wishlistCount } = useWishlist();
     const navigate = useNavigate();
 
     const [currency] = useState('USD');
@@ -150,6 +152,15 @@ const Header = () => {
           {cartCount > 0 && (
             <span className="absolute -top-2 -right-3 bg-white text-red-600 text-xs font-bold rounded-full px-1.5 py-0.5 shadow-sm">
               {cartCount}
+            </span>
+          )}
+        </Link>
+
+        <Link to="/wishlist" className="relative text-white text-lg">
+          <i className="fa-solid fa-heart"></i>
+          {wishlistCount > 0 && (
+            <span className="absolute -top-2 -right-3 bg-white text-red-600 text-xs font-bold rounded-full px-1.5 py-0.5 shadow-sm">
+              {wishlistCount}
             </span>
           )}
         </Link>

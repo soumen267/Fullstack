@@ -8,7 +8,7 @@ import About from './Pages/About/About';
 import Login from './Pages/Login';
 import Register from './Pages/Register';
 import Cart from './Pages/Cart';
-import { CartProvider } from './context/CartContext';
+import CartProvider from './context/CartContext';
 import AppInitializer from './context/AppInitializer';
 import ProductDetail from './components/ProductDetail';
 import CheckoutPage from './Pages/Checkout';

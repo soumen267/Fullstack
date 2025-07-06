@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useCart } from '../context/CartContext';
 import { toast } from 'react-toastify';
+import PayPalButton from '../components/PayPalButton';
+import BraintreeGooglePayButton from '../components/BraintreeGooglePayButton';
 
 const CheckoutPage = () => {
 
@@ -29,10 +30,12 @@ const CheckoutPage = () => {
   const taxRate = 0.08;
   const taxAmount = calculateSubtotal() * taxRate;
   const total = calculateSubtotal() + shippingCost + taxAmount;
+  //const formattedTotal = total.toFixed(2);
 
   const [formData, setFormData] = useState({
     name: '', email: '', address: '', city: '', zip: '',
-    cardName: '', cardNumber: '', expiry: '', cvv: ''
+    cardName: '', cardNumber: '', expiry: '', cvv: '',
+    country: '', state: ''
   });
 
   const [errors, setErrors] = useState({});
@@ -62,9 +65,16 @@ const CheckoutPage = () => {
     return Object.keys(newErrors).length === 0;
   };
 
+
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!validate()) return;
+
+    if (paymentMethod === 'card') { // Removed || total === 0 to only validate on card
+       if (!validate()) return;
+    } else {
+       return;
+    }
 
     const orderPayload = {
       billingInfo: {
@@ -76,15 +86,15 @@ const CheckoutPage = () => {
         zipCode: formData.zip,
         country: formData.country,
       },
-      // payment: {
-      //   method: paymentMethod,
-      //   ...(paymentMethod === 'card' && {
-      //     cardName: formData.cardName,
-      //     cardNumber: formData.cardNumber,
-      //     expiry: formData.expiry,
-      //     cvv: formData.cvv,
-      //   }),
-      // },
+      payment: {
+        method: paymentMethod,
+        ...(paymentMethod === 'card' && {
+          cardName: formData.cardName,
+          cardNumber: formData.cardNumber,
+          expiry: formData.expiry,
+          cvv: formData.cvv,
+        }),
+      },
       items: cartItems.map(item => ({
         productName: item.name,
         quantity: item.quantity,
@@ -219,12 +229,27 @@ const CheckoutPage = () => {
             </div>
           )}
 
+          {/* Render the PayPalButtons component when paymentMethod is 'paypal' */}
+        {paymentMethod === 'paypal' && total > 0 && (
+            <div className="mt-4">
+              <PayPalButton total={total} cartItems={cartItems} billingInfo={formData} validateBillingInfo={validate}/>
+            </div>
+        )}
+
+        {paymentMethod === 'gpay' && total > 0 && (
+            <div className="mt-4">
+              <BraintreeGooglePayButton total={total} cartItems={cartItems}/>
+            </div>
+        )}
+
+        {(paymentMethod === 'card' || total === 0) && (
           <button
             type="submit"
             className="w-full mt-6 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-xl transition"
           >
             Place Order
           </button>
+          )}
         </form>
 
         {/* Order Summary */}
