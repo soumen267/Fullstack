@@ -1,18 +1,44 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useCart } from '../context/CartContext';
 import { toast } from 'react-toastify';
 import PayPalButton from '../components/PayPalButton';
 import BraintreeGooglePayButton from '../components/BraintreeGooglePayButton';
+import LocationDropdown from '../components/LocationDropdown';
+import useDebounce from '../hooks/useDebounce';
+
+import { loadStripe } from '@stripe/stripe-js';
+import { Elements } from '@stripe/react-stripe-js';
+import StripePayment from '../components/StripePayment';
+
+const stripeKey = process.env.REACT_APP_STRIPE_PUBLIC_KEY;
+const stripePromise = loadStripe(stripeKey);
+
 
 const CheckoutPage = () => {
-
   const navigate = useNavigate();
+  const { cartItems, clearCart } = useCart();
+
+  const [paymentMethod, setPaymentMethod] = useState('card');
+  const [clientSecret, setClientSecret] = useState('');
+  const [stripeLoading, setStripeLoading] = useState(false);
+  const stripePaymentRef = useRef(null);
+  const [orderSuccess, setOrderSuccess] = useState(false);
+  const [successOrderId, setSuccessOrderId] = useState(null);
+
+  const [formData, setFormData] = useState({
+    name: '', email: '', address: '', city: '', zip: '', country: 'US', state: ''
+  });
+
+  const [errors, setErrors] = useState({});
+  const debouncedFormData = useDebounce(formData, 500);
+  const [customOrderId, setCustomOrderId] = useState('');
   useEffect(() => {
     axios.get('http://localhost:5000/auth-status', { withCredentials: true })
       .then((res) => {
         if (!res.data.isAuthenticated) {
+          toast.error('Please sign in to proceed to checkout!');
           navigate('/');
         }
       })
@@ -22,29 +48,17 @@ const CheckoutPage = () => {
       });
   }, [navigate]);
 
-  const [paymentMethod, setPaymentMethod] = useState('card');
-  const { cartItems } = useCart();
-
   const calculateSubtotal = () => cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
   const shippingCost = 0;
   const taxRate = 0.08;
   const taxAmount = calculateSubtotal() * taxRate;
   const total = calculateSubtotal() + shippingCost + taxAmount;
-  //const formattedTotal = total.toFixed(2);
-
-  const [formData, setFormData] = useState({
-    name: '', email: '', address: '', city: '', zip: '',
-    cardName: '', cardNumber: '', expiry: '', cvv: '',
-    country: '', state: ''
-  });
-
-  const [errors, setErrors] = useState({});
 
   const handleChange = (e) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  const validate = () => {
+  const validateBillingInfo = () => {
     const newErrors = {};
     if (!formData.name) newErrors.name = 'Full name is required';
     if (!formData.email || !/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Valid email is required';
@@ -53,202 +67,225 @@ const CheckoutPage = () => {
     if (!formData.state) newErrors.state = 'Please select your state';
     if (!formData.city) newErrors.city = 'City is required';
     if (!formData.zip || !/^\d{5}$/.test(formData.zip)) newErrors.zip = 'Valid 5-digit ZIP code is required';
-
-    if (paymentMethod === 'card') {
-      if (!formData.cardName) newErrors.cardName = 'Cardholder name is required';
-      if (!formData.cardNumber || !/^\d{16}$/.test(formData.cardNumber)) newErrors.cardNumber = 'Valid 16-digit card number required';
-      if (!formData.expiry || !/^\d{2}\/\d{2}$/.test(formData.expiry)) newErrors.expiry = 'Expiry must be MM/YY';
-      if (!formData.cvv || !/^\d{3}$/.test(formData.cvv)) newErrors.cvv = 'Valid 3-digit CVV required';
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
+  const isBillingInfoValid = () =>
+    formData.name &&
+    formData.email && /\S+@\S+\.\S+/.test(formData.email) &&
+    formData.address && formData.country &&
+    formData.state && formData.city &&
+    formData.zip && /^\d{5}$/.test(formData.zip);
 
+  useEffect(() => {
+    const fetchClientSecret = async () => {
+      if (
+        paymentMethod !== 'card' ||
+        total <= 0 || cartItems.length === 0 ||
+        clientSecret || !debouncedFormData.email ||
+        !debouncedFormData.name
+      ) return;
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+      setStripeLoading(true);
+      try {
+        const res = await axios.post('http://localhost:5000/create-payment-intent', {
+          totalAmount: total,
+          items: cartItems.map(item => ({
+            productName: item.title, quantity: item.quantity, price: item.price, productImage: item.images?.[0] || 'placeholder.jpg'
+          })),
+          billingInfo: {
+            ...debouncedFormData,
+            address2: debouncedFormData.address2 || ''
+          },
+          payerEmail: debouncedFormData.email,
+          payerName: debouncedFormData.name,
+        }, { withCredentials: true });
 
-    if (paymentMethod === 'card') { // Removed || total === 0 to only validate on card
-       if (!validate()) return;
-    } else {
-       return;
-    }
-
-    const orderPayload = {
-      billingInfo: {
-        name: formData.name,
-        email: formData.email,
-        address: formData.address,
-        city: formData.city,
-        state: formData.state,
-        zipCode: formData.zip,
-        country: formData.country,
-      },
-      payment: {
-        method: paymentMethod,
-        ...(paymentMethod === 'card' && {
-          cardName: formData.cardName,
-          cardNumber: formData.cardNumber,
-          expiry: formData.expiry,
-          cvv: formData.cvv,
-        }),
-      },
-      items: cartItems.map(item => ({
-        productName: item.name,
-        quantity: item.quantity,
-        price: item.price,
-        productImage: item.image, // or however your item holds image
-      })),
-      total: total.toFixed(2),
+        if (res.data.clientSecret) {
+          setClientSecret(res.data.clientSecret);
+          setCustomOrderId(res.data.orderId);
+        } else {
+          toast.error(`Stripe error: ${res.data.error}`);
+        }
+      } catch (error) {
+        console.error('Stripe error:', error);
+        toast.error('Failed to initialize payment.');
+      } finally {
+        setStripeLoading(false);
+      }
     };
 
+    fetchClientSecret();
+  }, [paymentMethod, total, cartItems, debouncedFormData, clientSecret]);
+
+  const handleStripePaymentSuccess = async (paymentIntent, customOrderId) => {
     try {
-      const res = await axios.post('http://localhost:5000/checkout', orderPayload, {
-        withCredentials: true, // important if you're using cookie-based JWT auth
+      const res = await fetch('http://localhost:5000/save-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          stripePaymentIntentId: paymentIntent.id,
+          totalAmount: total,
+          items: cartItems.map(item => ({
+            productName: item.title, quantity: item.quantity, price: item.price, productImage: item.images?.[0] || 'placeholder.jpg'
+          })),
+          shippingAddress: { ...formData },
+          payerEmail: formData.email,
+          payerName: formData.name,
+          customOrderId
+        })
       });
-      console.log(res);
-      toast.success('Order placed successfully!');
-      // optionally redirect
-      //navigate('/order-success'); 
+      const result = await res.json();
+      console.log("Response Status:", res.status);
+      console.log("Response JSON:", result);
+      if (res.ok) {
+        toast.success('Order saved!');
+        clearCart();
+        setSuccessOrderId(customOrderId);
+        setOrderSuccess(true);
+      } else {
+        console.error('Order Save Error:', result);
+        toast.error(result.error || 'Order saving failed.');
+      }
     } catch (err) {
-      toast.error('Something went wrong placing the order!');
-      console.error(err);
+      console.error('Save Order Error:', err);
+      toast.error('Something went wrong while saving the order.');
     }
   };
 
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!validateBillingInfo()) {
+      console.log("⛔ Billing info invalid:", formData);
+      toast.error('Please complete billing information.');
+      return;
+    }
+
+    if (total === 0) {
+      try {
+        await axios.post('http://localhost:5000/checkout-free-order', {
+          billingInfo: formData,
+          payment: { method: 'free' },
+          items: cartItems.map(item => ({
+            productName: item.title, quantity: item.quantity, price: item.price, productImage: item.images?.[0]
+          })),
+          total: total.toFixed(2),
+        }, { withCredentials: true });
+
+        toast.success('Free order placed!');
+        clearCart();
+        navigate('/');
+      } catch (err) {
+        toast.error('Free order failed.');
+      }
+      return;
+    }
+
+    if (paymentMethod === 'paypal' || paymentMethod === 'gpay') {
+      toast.info(`Please complete the payment using ${paymentMethod.toUpperCase()} button.`);
+      return;
+    }
+
+    if (paymentMethod === 'card') {
+      if (stripePaymentRef.current) {
+        stripePaymentRef.current.triggerSubmit(); // ✅ Trigger the payment
+      } else {
+        toast.error('Stripe form not ready.');
+      }
+    }
+  };
+
+  const stripeOptions = {
+    clientSecret,
+    appearance: {
+      theme: 'stripe',
+      labels: 'floating'
+    },
+  };
+
   return (
-    <div className="bg-gray-100 min-h-screen p-6 font-sans">
-      <div className="max-w-5xl mx-auto bg-white rounded-2xl shadow-lg grid md:grid-cols-2 gap-8 p-8">
-
-        {/* Billing + Payment Form */}
+    <div className="bg-gray-100 min-h-screen p-4 md:p-6 mt-4 md:mt-6 lg:mt-10">
+      <div className="max-w-6xl mx-auto bg-white rounded-2xl shadow-xl grid md:grid-cols-2 gap-8 p-6 md:p-10">
+        {/* Billing Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
-          <h2 className="text-2xl font-bold mb-4">Billing Information</h2>
-          <input name="name" value={formData.name} onChange={handleChange} placeholder="Full Name"
-            className="w-full border p-3 rounded-xl focus:ring-2 focus:ring-blue-500" />
-          {errors.name && <p className="text-red-500 text-sm">{errors.name}</p>}
+          <h2 className="text-2xl font-bold text-gray-800 mb-4">Billing Information</h2>
 
-          <input name="email" value={formData.email} onChange={handleChange} placeholder="Email Address"
-            className="w-full border p-3 rounded-xl focus:ring-2 focus:ring-blue-500" />
-          {errors.email && <p className="text-red-500 text-sm">{errors.email}</p>}
+          {['name', 'email', 'address'].map((field) => (
+            <div key={field}>
+              <input
+                name={field}
+                value={formData[field]}
+                onChange={handleChange}
+                placeholder={field[0].toUpperCase() + field.slice(1).replace('address', 'Address')}
+                className="w-full border border-gray-300 p-3 rounded-xl focus:ring-2 focus:ring-blue-500"
+              />
+              {errors[field] && <p className="text-sm text-red-500">{errors[field]}</p>}
+            </div>
+          ))}
 
-          <input name="address" value={formData.address} onChange={handleChange} placeholder="Address"
-            className="w-full border p-3 rounded-xl focus:ring-2 focus:ring-blue-500" />
-          {errors.address && <p className="text-red-500 text-sm">{errors.address}</p>}
+          <LocationDropdown formData={formData} setFormData={setFormData} />          
+
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <select name="country" value={formData.country} onChange={handleChange} className="w-full border p-3 rounded-xl focus:ring-2 focus:ring-blue-500">
-                <option value="">Select Country</option>
-                <option value="USA">United States</option>
-                <option value="IND">India</option>
-              </select>
-              {errors.country && <p className="text-red-500 text-sm">{errors.country}</p>}
-            </div>
-
-            <div>
-              <select name="state" value={formData.state} onChange={handleChange} className="w-full border p-3 rounded-xl focus:ring-2 focus:ring-blue-500">
-                <option value="">Select State</option>
-                <option value="NY">New York</option>
-                <option value="CA">California</option>
-                <option value="IL">Illinois</option>
-                <option value="TX">Texas</option>
-                <option value="AZ">Arizona</option>
-              </select>
-              {errors.state && <p className="text-red-500 text-sm">{errors.state}</p>}
-            </div>
+            <input name="zip" value={formData.zip} onChange={handleChange} placeholder="ZIP Code" className="w-full border p-3 rounded-xl" />
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <input name="city" value={formData.city} onChange={handleChange} placeholder="City"
-                className="w-full border p-3 rounded-xl focus:ring-2 focus:ring-blue-500" />
-              {errors.city && <p className="text-red-500 text-sm">{errors.city}</p>}
-            </div>
-            <div>
-              <input name="zip" value={formData.zip} onChange={handleChange} placeholder="ZIP Code"
-                className="w-full border p-3 rounded-xl focus:ring-2 focus:ring-blue-500" />
-              {errors.zip && <p className="text-red-500 text-sm">{errors.zip}</p>}
-            </div>
-          </div>
+          {errors.city && <p className="text-sm text-red-500">{errors.city}</p>}
+          {errors.zip && <p className="text-sm text-red-500">{errors.zip}</p>}
 
-          {/* Payment Method */}
-          <h3 className="text-lg font-semibold pt-6">Select Payment Method</h3>
+          {/* Payment Selection */}
+          <h3 className="pt-6 text-lg font-semibold">Select Payment Method</h3>
           <div className="flex gap-3">
             {['card', 'paypal', 'gpay'].map((method) => (
-              <button
-                key={method}
-                type="button"
-                onClick={() => setPaymentMethod(method)}
+              <button key={method} type="button" onClick={() => setPaymentMethod(method)}
                 className={`flex-1 border rounded-xl py-2 px-4 text-sm transition ${
                   paymentMethod === method ? 'border-blue-600 bg-blue-50' : 'border-gray-300 hover:border-blue-400'
-                }`}
-              >
-                {method === 'card' ? '💳 Credit Card' : method === 'paypal' ? '🅿️ PayPal' : '🟢 GPay'}
+                }`}>
+                {method === 'card' ? '💳 Card' : method === 'paypal' ? '🅿️ PayPal' : '🟢 GPay'}
               </button>
             ))}
           </div>
 
-          {paymentMethod === 'card' && (
-            <div className="space-y-4 mt-4">
-              <input name="cardName" value={formData.cardName} onChange={handleChange} placeholder="Cardholder Name"
-                className="w-full border p-3 rounded-xl focus:ring-2 focus:ring-blue-500" />
-              {errors.cardName && <p className="text-red-500 text-sm">{errors.cardName}</p>}
+          {/* Stripe */}
+          {paymentMethod === 'card' && total > 0 && (
+            stripeLoading ? (
+              <div className="text-center mt-4 text-gray-600">Loading card form...</div>
+            ) : clientSecret ? (
+              <Elements options={stripeOptions} stripe={stripePromise}>
+                <StripePayment totalAmount={total} clientSecret={clientSecret} onPaymentSuccess={handleStripePaymentSuccess} billingInfo={formData} ref={stripePaymentRef} customOrderId={customOrderId} />
+              </Elements>
+            ) : (
+              <div className="text-center mt-4 text-red-600">Complete billing info to load payment form.</div>
+            )
+          )}
 
-              <input name="cardNumber" value={formData.cardNumber} onChange={handleChange} placeholder="Card Number"
-                className="w-full border p-3 rounded-xl focus:ring-2 focus:ring-blue-500" />
-              {errors.cardNumber && <p className="text-red-500 text-sm">{errors.cardNumber}</p>}
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col">
-                    <input
-                    type="text"
-                    name="expiry"
-                    onChange={handleChange}
-                    value={formData.expiry}
-                    placeholder="MM/YY"
-                    className="w-full border p-3 rounded-xl focus:ring-2 focus:ring-blue-500"
-                    />
-                    {errors.expiry && (
-                    <p className="text-red-500 text-sm mt-1">{errors.expiry}</p>
-                    )}
-                </div>
-                <div className="flex flex-col">
-                    <input
-                    type="text"
-                    name="cvv"
-                    onChange={handleChange}
-                    value={formData.cvv}
-                    placeholder="CVV"
-                    className="w-full border p-3 rounded-xl focus:ring-2 focus:ring-blue-500"
-                    />
-                    {errors.cvv && (
-                    <p className="text-red-500 text-sm mt-1">{errors.cvv}</p>
-                    )}
-                </div>
-                </div>
+          {/* PayPal */}
+          {paymentMethod === 'paypal' && total > 0 && (
+            <div className="mt-4">
+              <PayPalButton total={total} cartItems={cartItems} billingInfo={formData} validateBillingInfo={validateBillingInfo} />
             </div>
           )}
 
-          {/* Render the PayPalButtons component when paymentMethod is 'paypal' */}
-        {paymentMethod === 'paypal' && total > 0 && (
+          {/* GPay */}
+          {paymentMethod === 'gpay' && total > 0 && (
             <div className="mt-4">
-              <PayPalButton total={total} cartItems={cartItems} billingInfo={formData} validateBillingInfo={validate}/>
+              <BraintreeGooglePayButton total={total} cartItems={cartItems} billingInfo={formData} />
             </div>
-        )}
+          )}
 
-        {paymentMethod === 'gpay' && total > 0 && (
-            <div className="mt-4">
-              <BraintreeGooglePayButton total={total} cartItems={cartItems}/>
-            </div>
-        )}
-
-        {(paymentMethod === 'card' || total === 0) && (
-          <button
-            type="submit"
-            className="w-full mt-6 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-xl transition"
-          >
-            Place Order
-          </button>
+          {/* Submit */}
+          {(paymentMethod === 'card' || total === 0) && (
+            <button
+              type="submit"
+              className="w-full mt-6 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-xl transition"
+              disabled={
+                stripeLoading ||
+                (paymentMethod === 'card' && (!clientSecret || total === 0)) ||
+                (total === 0 && !isBillingInfoValid())
+              }
+            >
+              {stripeLoading ? 'Loading Payment...' : (total === 0 ? 'Place Free Order' : 'Place Order')}
+            </button>
           )}
         </form>
 
@@ -259,8 +296,7 @@ const CheckoutPage = () => {
             {cartItems.map(item => (
               <div key={item.id} className="flex items-center justify-between border-b border-gray-200 pb-2">
                 <div className="flex items-center gap-3">
-                  <img src={item.images?.[0] || 'placeholder.jpg'} alt={item.title}
-                    className="w-12 h-12 rounded object-cover" />
+                  <img src={item.images?.[0] || 'placeholder.jpg'} alt={item.title} className="w-12 h-12 rounded object-cover" />
                   <div>
                     <p className="font-medium text-sm">{item.title}</p>
                     <p className="text-xs text-gray-500">Qty: {item.quantity}</p>
@@ -270,7 +306,6 @@ const CheckoutPage = () => {
               </div>
             ))}
           </div>
-
           <div className="mt-6 space-y-3 text-gray-700">
             <div className="flex justify-between"><span>Subtotal</span><span>${calculateSubtotal().toFixed(2)}</span></div>
             <div className="flex justify-between text-sm text-gray-500"><span>Shipping</span><span>${shippingCost.toFixed(2)}</span></div>
@@ -279,8 +314,25 @@ const CheckoutPage = () => {
             <div className="flex justify-between font-semibold text-lg"><span>Total</span><span>${total.toFixed(2)}</span></div>
           </div>
         </div>
-
       </div>
+      {orderSuccess && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-8 rounded-xl shadow-lg max-w-md w-full text-center">
+            <h2 className="text-2xl font-bold mb-4 text-green-600">🎉 Order Successful!</h2>
+            <p className="text-gray-700 mb-2">Your order has been placed successfully.</p>
+            <p className="text-gray-800 font-semibold">Order ID: <span className="text-blue-600">{successOrderId}</span></p>
+            <button
+              onClick={() => {
+                setOrderSuccess(false);
+                navigate('/');
+              }}
+              className="mt-6 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-xl transition"
+            >
+              Continue to Homepage
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

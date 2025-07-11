@@ -1,11 +1,10 @@
-import React from 'react';
 import { useWishlist } from '../context/WishlistContext';
 
 const Wishlist = () => {
   const { wishlistItems, removeFromWishlist } = useWishlist();
 
   return (
-    <div className="min-h-screen bg-gray-100 py-8 px-4 md:px-12">
+    <div className="min-h-screen bg-gray-100 py-8 px-4 md:px-12  p-4 md:p-6 mt-4 md:mt-6 lg:mt-10">
       <h2 className="text-3xl font-bold text-center text-gray-800 mb-8">
         Your Wishlist
       </h2>

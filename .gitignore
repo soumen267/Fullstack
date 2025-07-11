@@ -22,3 +22,5 @@ yarn-error.log*
 *.swp
 .idea/
 .vscode/
+
+credential.txt

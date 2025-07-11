@@ -1,14 +1,16 @@
 {
   "name": "my-fullstack-app",
   "scripts": {
-    "client": "npm start --prefix client",
-    "server": "npm run dev --prefix server",
-    "dev": "concurrently \"npm run server\" \"npm run client\""
+    "start-server": "cd server && nodemon index.js",
+    "start-client": "cd client && npm start",
+    "start-all": "npm-run-all --parallel start-server start-client"
   },
   "dependencies": {
     "jwt-decode": "^4.0.0"
   },
   "devDependencies": {
-    "concurrently": "^9.2.0"
+    "concurrently": "^9.2.0",
+    "npm-run-all": "^4.1.5",
+    "wait-on": "^8.0.3"
   }
 }

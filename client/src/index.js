@@ -14,6 +14,7 @@ import ProductDetail from './components/ProductDetail';
 import CheckoutPage from './Pages/Checkout';
 import UserProfile from './Pages/UserProfile';
 import Wishlist from './Pages/Wishlist';
+import OrderSuccessPage from './Pages/OrderSuccessPage';
 import 'react-toastify/dist/ReactToastify.css';
 import './style.css';
 
@@ -30,7 +31,8 @@ const router = createBrowserRouter([
       { path: '/checkout', element: <CheckoutPage /> },
       { path: '/singleProduct/:id', element: <ProductDetail /> },
       { path: '/profile/:id', element: <UserProfile /> },
-      { path: '/wishlist', element: <Wishlist /> }
+      { path: '/wishlist', element: <Wishlist /> },
+      { path: '/order-success', element: <OrderSuccessPage /> }
     ],
   },
 ]);

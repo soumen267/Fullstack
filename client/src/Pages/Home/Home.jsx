@@ -2,7 +2,7 @@ import Products from "../../components/ProductCard";
 
 export default function Home() {
     return (
-  <div className="w-full bg-white">
+  <div className="w-full bg-white md:p-1 mt-4 md:mt-6 lg:mt-10">
       {/* Hero Banner */}
     <div className="relative aspect-[2/1] overflow-hidden rounded-xl shadow-md mx-auto max-w-screen-xl mt-6">
       <img

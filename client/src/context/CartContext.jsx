@@ -11,6 +11,10 @@ const CartProvider = ({ children }) => {
   const [cartItems, setCartItems] = useState([]);
   const [isInitialLoadComplete, setIsInitialLoadComplete] = useState(false); // New state to manage initial load
 
+  const clearCart = () => {
+    setCartItems([]);
+  };
+
   // Function to load cart from cookies
   const loadCartFromCookies = useCallback(() => {
     try {
@@ -94,7 +98,7 @@ const CartProvider = ({ children }) => {
   const cartCount = cartItems.reduce((total, item) => total + item.quantity, 0);
 
   return (
-    <CartContext.Provider value={{ cartItems, addToCart, removeFromCart, updateQuantity, cartCount }}>
+    <CartContext.Provider value={{ cartItems, addToCart, removeFromCart, updateQuantity, cartCount, clearCart }}>
       {children}
     </CartContext.Provider>
   );

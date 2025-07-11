@@ -2,20 +2,19 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-//import { useNavigate } from 'react-router-dom';
+// import { useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
-
-// Import Braintree (correct way)
 import braintree from 'braintree-web';
 
-const BraintreeGooglePayButton = ({ total, cartItems }) => {
-  //const navigate = useNavigate();
+const BraintreeGooglePayButton = ({ total, cartItems, billingInfo }) => {
+  // const navigate = useNavigate();
   const { clearCart } = useCart();
   const [clientToken, setClientToken] = useState(null);
   const [googlePayInstance, setGooglePayInstance] = useState(null);
   const [isButtonReady, setIsButtonReady] = useState(false);
+  
 
-  // 1. Fetch client token from backend
+  // 1. Fetch Braintree token
   useEffect(() => {
     const fetchToken = async () => {
       try {
@@ -31,7 +30,7 @@ const BraintreeGooglePayButton = ({ total, cartItems }) => {
     fetchToken();
   }, []);
 
-  // 2. Initialize Braintree Google Pay
+  // 2. Setup Google Pay
   useEffect(() => {
     if (!clientToken) return;
 
@@ -41,14 +40,15 @@ const BraintreeGooglePayButton = ({ total, cartItems }) => {
           authorization: clientToken,
         });
 
+        // ✅ Initialize Google Pay instance
         const gpInstance = await braintree.googlePayment.create({
           client: clientInstance,
           googlePayVersion: 2,
-          merchantId: 'BCR2DN4T27LZRHDB', // Required only for PRODUCTION
+          // merchantId is only needed in PRODUCTION!
         });
 
         const paymentsClient = new window.google.payments.api.PaymentsClient({
-          environment: 'TEST', // Change to 'PRODUCTION' in live
+          environment: 'TEST', // Use 'PRODUCTION' when live
         });
 
         const paymentDataRequest = gpInstance.createPaymentDataRequest({
@@ -97,7 +97,7 @@ const BraintreeGooglePayButton = ({ total, cartItems }) => {
           totalPriceStatus: 'FINAL',
           totalPrice: total.toFixed(2),
           currencyCode: 'USD',
-          shippingAddressRequired: false
+          shippingAddressRequired: false,
         },
         merchantInfo: {
           merchantName: 'My Store',
@@ -109,25 +109,28 @@ const BraintreeGooglePayButton = ({ total, cartItems }) => {
 
       console.log('Nonce:', payload.nonce);
 
-      // Send nonce to server for transaction
-      const res = await axios.post('http://localhost:5000/api/braintree/process-google-pay', {
-        paymentMethodNonce: payload.nonce,
-        totalAmount: total,
-        items: cartItems.map(item => ({
-          productName: item.title,
-          quantity: item.quantity,
-          price: item.price,
-          productImage: item.images?.[0] || '',
-        })),
-        shippingAddress: payload.details.shippingAddress,
-        payerEmail: payload.details.email,
-        payerName: payload.details.payerName,
-      }, { withCredentials: true });
+      const res = await axios.post(
+        'http://localhost:5000/api/braintree/process-google-pay',
+        {
+          paymentMethodNonce: payload.nonce,
+          totalAmount: total,
+          items: cartItems.map(item => ({
+            productName: item.title,
+            quantity: item.quantity,
+            price: item.price,
+            productImage: item.images?.[0] || '',
+          })),
+          shippingAddress: payload.details.shippingAddress,
+          payerEmail: payload.details.email,
+          payerName: payload.details.payerName,
+        },
+        { withCredentials: true }
+      );
 
       if (res.data.success) {
         toast.success('Payment successful!');
         clearCart();
-        //navigate('/order-success');
+        // navigate('/order-success');
       } else {
         toast.error(res.data.message || 'Payment failed.');
       }
@@ -147,9 +150,10 @@ const BraintreeGooglePayButton = ({ total, cartItems }) => {
 
   return (
     <button
-        onClick={handleGooglePayClick}
-        disabled={!isButtonReady}
-        className="bg-black text-white px-5 py-2 rounded-md text-base border-none cursor-pointer flex items-center gap-2 max-w-xs mt-2.5">
+      onClick={handleGooglePayClick}
+      disabled={!isButtonReady}
+      className="bg-black text-white px-5 py-2 rounded-md text-base border-none cursor-pointer flex items-center gap-2 max-w-xs mt-2.5"
+    >
       <img
         src="https://www.gstatic.com/instantbuy/svg/dark_gpay.svg"
         alt="Google Pay"
