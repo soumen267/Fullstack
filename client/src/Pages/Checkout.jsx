@@ -145,11 +145,13 @@ const CheckoutPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!validateBillingInfo()) {
-      console.log("⛔ Billing info invalid:", formData);
-      toast.error('Please complete billing information.');
-      return;
-    }
+    if (paymentMethod !== 'paypal' && paymentMethod !== 'gpay') {
+      if (!validateBillingInfo()) {
+        console.log("⛔ Billing info invalid:", formData);
+        toast.error('Please complete billing information.');
+        return;
+      }
+    }    
 
     if (total === 0) {
       try {
