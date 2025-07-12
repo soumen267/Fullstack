@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const path = require('path');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
-
+const isProduction = process.env.NODE_ENV === 'production';
 // Ensure .env loads from /server/.env
 require('dotenv').config({ path: '../.env' });
 
@@ -27,16 +27,18 @@ const allowedOrigins = [
 ].filter(Boolean);
 
 app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like Postman)
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('CORS policy: Not allowed by CORS'));
-    }
-  },
+  origin: isProduction ? function (origin, callback) {
+        if (!origin || allowedOrigins.includes(origin)) {
+          callback(null, true);
+        } else {
+          console.error('❌ Blocked by CORS:', origin);
+          callback(new Error('CORS policy: Not allowed by CORS'));
+        }
+      }
+    : true, // In development, allow all
   credentials: true
 }));
+
 
 // ---------------------------------------
 // 🛢️ Connect MongoDB
@@ -65,7 +67,7 @@ app.use('/', require('./routes/uploadRoutes'));
 app.use('/', require('./routes/wishlist'));
 app.use('/', require('./routes/emailRouter'));
 app.use('/', require('./routes/paypalRouter'));
-app.use('/', require('./routes/braintreeRoutes'));
+app.use('/', require('./routes/StripeGooglePayRoutes'));
 app.use('/', require('./routes/stripeRoute'));
 
 // ---------------------------------------

@@ -24,7 +24,8 @@ const LocationDropdown = ({ formData, setFormData }) => {
   }, [formData.country, formData.state, setFormData]);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <>
+    <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
       {/* Country Dropdown */}
       <select
         value={formData.country}
@@ -36,7 +37,8 @@ const LocationDropdown = ({ formData, setFormData }) => {
           <option key={c.isoCode} value={c.isoCode}>{c.name}</option>
         ))}
       </select>
-
+    </div>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       {/* State Dropdown */}
       <select
         value={formData.state}
@@ -63,6 +65,7 @@ const LocationDropdown = ({ formData, setFormData }) => {
         ))}
       </select>
     </div>
+    </>
   );
 };
 

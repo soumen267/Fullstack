@@ -5,7 +5,7 @@ import { useCart } from '../context/CartContext';
 import { toast } from 'react-toastify';
 import api from '../api';
 import PayPalButton from '../components/PayPalButton';
-import BraintreeGooglePayButton from '../components/BraintreeGooglePayButton';
+import StripeGooglePayButton from '../components/StripeGooglePayButton';
 import LocationDropdown from '../components/LocationDropdown';
 import useDebounce from '../hooks/useDebounce';
 
@@ -20,6 +20,7 @@ const CheckoutPage = () => {
   useAuthStatus();
   const navigate = useNavigate();
   const { cartItems, clearCart } = useCart();
+  const [gpayReady, setGpayReady] = useState(false);
 
   const [paymentMethod, setPaymentMethod] = useState('card');
   const [clientSecret, setClientSecret] = useState('');
@@ -173,10 +174,10 @@ const CheckoutPage = () => {
       return;
     }
 
-    if (paymentMethod === 'paypal' || paymentMethod === 'gpay') {
-      toast.info(`Please complete the payment using ${paymentMethod.toUpperCase()} button.`);
-      return;
-    }
+    // if (paymentMethod === 'paypal' || paymentMethod === 'gpay') {
+    //   toast.info(`Please complete the payment using ${paymentMethod.toUpperCase()} button.`);
+    //   return;
+    // }
 
     if (paymentMethod === 'card') {
       if (stripePaymentRef.current) {
@@ -200,9 +201,34 @@ const CheckoutPage = () => {
       <div className="max-w-6xl mx-auto bg-white rounded-2xl shadow-xl grid md:grid-cols-2 gap-8 p-6 md:p-10">
         {/* Billing Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
+          <h3 className="pt-6 text-lg font-semibold">Select Payment Method</h3>
+          {/* GPay and PayPal side-by-side */}
+          {total > 0 && (
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="h-16 w-full flex items-center justify-center rounded-xl">
+              <PayPalButton
+                total={total}
+                cartItems={cartItems}
+                billingInfo={formData}
+                validateBillingInfo={validateBillingInfo}
+              />
+            </div>
+
+            <div className="h-16 w-full flex items-center justify-center rounded-xl">
+              <Elements stripe={stripePromise}>
+                <StripeGooglePayButton
+                  total={total}
+                  cartItems={cartItems}
+                  billingInfo={formData}
+                />
+              </Elements>
+            </div>
+          </div>
+          )}
+
           <h2 className="text-2xl font-bold text-gray-800 mb-4">Billing Information</h2>
 
-          {['name', 'email', 'address'].map((field) => (
+          {['name', 'email', 'address','zip'].map((field) => (
             <div key={field}>
               <input
                 name={field}
@@ -215,16 +241,10 @@ const CheckoutPage = () => {
             </div>
           ))}
 
-          <LocationDropdown formData={formData} setFormData={setFormData} />          
-
-          <div className="grid grid-cols-2 gap-4">
-            <input name="zip" value={formData.zip} onChange={handleChange} placeholder="ZIP Code" className="w-full border p-3 rounded-xl" />
-          </div>
-          {errors.city && <p className="text-sm text-red-500">{errors.city}</p>}
-          {errors.zip && <p className="text-sm text-red-500">{errors.zip}</p>}
+          <LocationDropdown formData={formData} setFormData={setFormData} />
 
           {/* Payment Selection */}
-          <h3 className="pt-6 text-lg font-semibold">Select Payment Method</h3>
+          {/* <h3 className="pt-6 text-lg font-semibold">Select Payment Method</h3>
           <div className="flex gap-3">
             {['card', 'paypal', 'gpay'].map((method) => (
               <button key={method} type="button" onClick={() => setPaymentMethod(method)}
@@ -234,7 +254,7 @@ const CheckoutPage = () => {
                 {method === 'card' ? '💳 Card' : method === 'paypal' ? '🅿️ PayPal' : '🟢 GPay'}
               </button>
             ))}
-          </div>
+          </div> */}
 
           {/* Stripe */}
           {paymentMethod === 'card' && total > 0 && (
@@ -249,19 +269,7 @@ const CheckoutPage = () => {
             )
           )}
 
-          {/* PayPal */}
-          {paymentMethod === 'paypal' && total > 0 && (
-            <div className="mt-4">
-              <PayPalButton total={total} cartItems={cartItems} billingInfo={formData} validateBillingInfo={validateBillingInfo} />
-            </div>
-          )}
-
-          {/* GPay */}
-          {paymentMethod === 'gpay' && total > 0 && (
-            <div className="mt-4">
-              <BraintreeGooglePayButton total={total} cartItems={cartItems} billingInfo={formData} />
-            </div>
-          )}
+          
 
           {/* Submit */}
           {(paymentMethod === 'card' || total === 0) && (
