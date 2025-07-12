@@ -8,13 +8,13 @@ function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-
+  const API_BASE = process.env.REACT_APP_API_URL;
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError('');
     try {
         await axios.post(
-          'http://localhost:5000/login',
+          `${API_BASE}/login`,
           { email, password },
           {
             withCredentials: true, // This ensures cookies are sent/stored

@@ -2,7 +2,8 @@
 node_modules/
 client/node_modules/
 server/node_modules/
-client/.env
+client/.env.development
+client/.env.production
 # Build output
 client/build/
 server/dist/

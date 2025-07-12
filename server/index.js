@@ -22,10 +22,9 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // CORS setup: allow localhost + Ngrok access
 const allowedOrigins = [
-  'http://localhost:3000',
-  process.env.REACT_APP_API_URL, // for frontend access
-  process.env.NGROK_URL           // for public access
-].filter(Boolean); // remove any undefined
+  process.env.CORS_ORIGIN_DEV,
+  process.env.CORS_ORIGIN_PROD
+].filter(Boolean);
 
 app.use(cors({
   origin: allowedOrigins,
@@ -66,11 +65,7 @@ app.use('/', require('./routes/stripeRoute'));
 // 🚀 Start Server
 // ---------------------------------------
 app.listen(PORT, () => {
-  console.log(`🔧 Server running locally at http://localhost:${PORT}`);
-
-  if (process.env.NGROK_URL) {
-    console.log(`🌐 Public via Ngrok at: ${process.env.NGROK_URL}`);
-  }
+  console.log(`Server running on port ${PORT}`);
 });
 
 app.use((req, res) => {

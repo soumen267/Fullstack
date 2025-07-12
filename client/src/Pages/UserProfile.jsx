@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import OrderDetails from '../components/OrderDetails';
+import OrderCard from '../components/OrderCard';
 
 const UserProfile = () => {
   const { id } = useParams();
@@ -16,6 +18,8 @@ const UserProfile = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [previewImage, setPreviewImage] = useState('');
   const [activeTab, setActiveTab] = useState('profile');
+  const [orders, setOrders] = useState([]);
+  const [selectedOrder, setSelectedOrder] = useState(null);
 
   useEffect(() => {
     if (activeTab === 'profile') {
@@ -62,6 +66,44 @@ const UserProfile = () => {
             toast.error('Error updating profile!')
         );
     };
+
+    useEffect(() => {
+      if (activeTab === 'orders') {
+        const fetchUserDashboard = async () => {
+          try {
+            const res = await fetch('http://localhost:5000/user/dashboard', {
+              method: 'GET',
+              credentials: 'include',
+            });
+
+            const data = await res.json();
+            console.log('Billing Info:', data.billingInfo);
+            console.log('Orders:', data.orders);
+            setOrders(data.orders)
+          } catch (error) {
+            console.error('Error fetching dashboard:', error);
+          }
+        };
+        
+        fetchUserDashboard(); // ✅ CALL THE FUNCTION
+      }
+    }, [activeTab]);
+
+const UserOrdersSection = ({ orders, onViewDetails }) => {
+  return (
+    <div className="p-4 text-gray-700">
+      {orders.length === 0 ? (
+        <p>No orders found.</p>
+      ) : (
+        <div className="space-y-6">
+          {orders.map((order) => (
+            <OrderCard key={order._id} order={order} onViewDetails={onViewDetails} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
   // Function to render content based on activeTab
   const renderContent = () => {
@@ -136,12 +178,10 @@ const UserProfile = () => {
           </div>
         );
       case 'orders':
-        return (
-          <div className="p-4 text-gray-700">
-            <h3 className="text-xl font-bold mb-4">Your Orders</h3>
-            <p>Order history will appear here. (Content for Orders tab)</p>
-            {/* Replace with your actual Orders component/content */}
-          </div>
+        return selectedOrder ? (
+          <OrderDetails order={selectedOrder} onBack={() => setSelectedOrder(null)} />
+        ) : (
+          <UserOrdersSection orders={orders} onViewDetails={(order) => setSelectedOrder(order)} />
         );
       case 'settings':
         return (

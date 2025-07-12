@@ -2,7 +2,31 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const bcrypt = require('bcrypt');
 const User = require('../models/User');
+const BillingInfo = require('../models/BillingInfo');
+const Order = require('../models/Order');
+const jwt = require('jsonwebtoken');
 const router = express.Router();
+
+router.get('/user/dashboard', async (req, res) => {
+  const token = req.cookies.token;
+  if (!token) return res.status(401).json({ message: 'Unauthorized' });
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your_secret_key');
+    const userId = decoded._id;
+
+    const billingInfo = await BillingInfo.findOne({ user: userId }).sort({ createdAt: -1 });
+
+    const orders = await Order.find({ user: userId })
+      .populate('billingInfoRef'); // if you want full billing info in each order
+      //.sort({ createdAt: -1 });
+
+    res.status(200).json({ billingInfo, orders });
+  } catch (err) {
+    console.error('[USER DASHBOARD ERROR]', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
 
 router.post('/register', [
   body('name').notEmpty().withMessage('Name is required'),

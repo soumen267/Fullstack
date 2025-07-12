@@ -14,3 +14,20 @@ html, body {
 }
 
 /* Any other custom global styles */
+
+  .scrollbar-visible {
+    scrollbar-width: auto; /* Firefox */
+  }
+
+  .scrollbar-visible::-webkit-scrollbar {
+    height: 8px;
+  }
+
+  .scrollbar-visible::-webkit-scrollbar-thumb {
+    background: #a0aec0; /* Tailwind gray-400 */
+    border-radius: 4px;
+  }
+
+  .scrollbar-visible::-webkit-scrollbar-track {
+    background: #edf2f7; /* Tailwind gray-100 */
+  }
