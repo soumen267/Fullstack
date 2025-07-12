@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import useAuthStatus from '../hooks/useAuthStatus';
 import { useCart } from '../context/CartContext';
 import { toast } from 'react-toastify';
+import api from '../api';
 import PayPalButton from '../components/PayPalButton';
 import BraintreeGooglePayButton from '../components/BraintreeGooglePayButton';
 import LocationDropdown from '../components/LocationDropdown';
@@ -15,8 +16,8 @@ import StripePayment from '../components/StripePayment';
 const stripeKey = process.env.REACT_APP_STRIPE_PUBLIC_KEY;
 const stripePromise = loadStripe(stripeKey);
 
-
 const CheckoutPage = () => {
+  useAuthStatus();
   const navigate = useNavigate();
   const { cartItems, clearCart } = useCart();
 
@@ -34,20 +35,7 @@ const CheckoutPage = () => {
   const [errors, setErrors] = useState({});
   const debouncedFormData = useDebounce(formData, 500);
   const [customOrderId, setCustomOrderId] = useState('');
-  useEffect(() => {
-    axios.get('http://localhost:5000/auth-status', { withCredentials: true })
-      .then((res) => {
-        if (!res.data.isAuthenticated) {
-          toast.error('Please sign in to proceed to checkout!');
-          navigate('/');
-        }
-      })
-      .catch(() => {
-        toast.error('Please sign in to proceed to checkout!');
-        navigate('/');
-      });
-  }, [navigate]);
-
+  
   const calculateSubtotal = () => cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
   const shippingCost = 0;
   const taxRate = 0.08;
@@ -89,7 +77,7 @@ const CheckoutPage = () => {
 
       setStripeLoading(true);
       try {
-        const res = await axios.post('http://localhost:5000/create-payment-intent', {
+        const res = await api.post('/create-payment-intent', {
           totalAmount: total,
           items: cartItems.map(item => ({
             productName: item.title, quantity: item.quantity, price: item.price, productImage: item.images?.[0] || 'placeholder.jpg'
@@ -121,7 +109,7 @@ const CheckoutPage = () => {
 
   const handleStripePaymentSuccess = async (paymentIntent, customOrderId) => {
     try {
-      const res = await fetch('http://localhost:5000/save-order', {
+      const res = await api.post('/save-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -165,7 +153,7 @@ const CheckoutPage = () => {
 
     if (total === 0) {
       try {
-        await axios.post('http://localhost:5000/checkout-free-order', {
+        await api.post('/checkout-free-order', {
           billingInfo: formData,
           payment: { method: 'free' },
           items: cartItems.map(item => ({

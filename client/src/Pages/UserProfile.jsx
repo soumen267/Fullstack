@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../api';
 import { useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import OrderDetails from '../components/OrderDetails';
@@ -23,7 +23,7 @@ const UserProfile = () => {
 
   useEffect(() => {
     if (activeTab === 'profile') {
-    axios.get(`http://localhost:5000/user/${id}`)
+    api.get(`/user/${id}`)
      .then(res => {
         console.log('Fetched user profile:', res.data); // ✅ console log here
         setProfile(res.data);
@@ -44,7 +44,7 @@ const UserProfile = () => {
     const formData = new FormData();
     formData.append('avatar', file);
 
-    const res = await axios.post('http://localhost:5000/upload', formData);
+    const res = await api.post('/upload', formData);
     const uploadedUrl = res.data.url;
     setProfile(prev => ({ ...prev, avatar: uploadedUrl }));
     setPreviewImage(uploadedUrl);
@@ -57,7 +57,7 @@ const UserProfile = () => {
         return;
     }
 
-    axios.put(`http://localhost:5000/edit/${id}`, profile)
+    api.put(`/edit/${id}`, profile)
         .then(() => {
             setIsEditing(false);
             toast.success('Profile updated successfully!');
@@ -71,7 +71,7 @@ const UserProfile = () => {
       if (activeTab === 'orders') {
         const fetchUserDashboard = async () => {
           try {
-            const res = await fetch('http://localhost:5000/user/dashboard', {
+            const res = api.get('/user/dashboard', {
               method: 'GET',
               credentials: 'include',
             });

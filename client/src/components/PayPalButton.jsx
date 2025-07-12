@@ -1,7 +1,7 @@
 import React from 'react';
 // Import the components from the library
 import { PayPalScriptProvider, PayPalButtons as SDKPayPalButtons } from '@paypal/react-paypal-js';
-import axios from 'axios';
+import api from '../api';
 import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
@@ -31,7 +31,7 @@ const PayPalButton = ({ total, cartItems, billingInfo, validateBillingInfo }) =>
                     //     return actions.reject();
                     // }
 
-                    return axios.post('http://localhost:5000/api/paypal/create-order', {
+                    return api.post('/api/paypal/create-order', {
                         amount: total.toFixed(2),
                         currency: 'USD',
                         items: cartItems.map(item => ({
@@ -57,7 +57,7 @@ const PayPalButton = ({ total, cartItems, billingInfo, validateBillingInfo }) =>
                     });
                 }}
                 onApprove={(data, actions) => {
-                    return axios.post('http://localhost:5000/api/paypal/capture-order', {
+                    return api.post('/api/paypal/capture-order', {
                         orderID: data.orderID,
                         billingInfo: billingInfo,
                         items: cartItems.map(item => ({

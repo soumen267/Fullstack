@@ -1,6 +1,6 @@
 // src/components/BraintreeGooglePayButton.jsx
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import api from '../api';
 import { toast } from 'react-toastify';
 // import { useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
@@ -18,7 +18,7 @@ const BraintreeGooglePayButton = ({ total, cartItems, billingInfo }) => {
   useEffect(() => {
     const fetchToken = async () => {
       try {
-        const res = await axios.get('http://localhost:5000/api/braintree/client-token', {
+        const res = await api.get('/api/braintree/client-token', {
           withCredentials: true,
         });
         setClientToken(res.data.clientToken);
@@ -109,8 +109,7 @@ const BraintreeGooglePayButton = ({ total, cartItems, billingInfo }) => {
 
       console.log('Nonce:', payload.nonce);
 
-      const res = await axios.post(
-        'http://localhost:5000/api/braintree/process-google-pay',
+      const res = await api.post('/api/braintree/process-google-pay',
         {
           paymentMethodNonce: payload.nonce,
           totalAmount: total,

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import api from '../api';
 import { toast } from 'react-toastify';
 
 function Register() {
@@ -22,7 +22,7 @@ function Register() {
 
     const sendConfirmationEmail = async (email, username) => {
         try {
-            const res = await axios.post('http://localhost:5000/send-confirmation', {
+            const res = await api.post('/send-confirmation', {
                 email,
                 username,
             });
@@ -39,7 +39,7 @@ function Register() {
         setServerError('');
 
         try {
-            const response = await axios.post('http://localhost:5000/register', formData); // Replace with your API endpoint
+            const response = await api.post('/register', formData); // Replace with your API endpoint
             console.log('Registration successful:', response.data);
             await sendConfirmationEmail(formData.email, formData.name);
             toast.success('Registration successful!');

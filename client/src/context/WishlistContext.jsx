@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../api';
 import { toast } from 'react-toastify';
 
 const WishlistContext = createContext();
@@ -9,14 +9,14 @@ export const WishlistProvider = ({ children, userId }) => {
 
   useEffect(() => {
     if (userId) {
-      axios.get(`http://localhost:5000/show/${userId}`)
+      api.get(`/show/${userId}`)
         .then((res) => setWishlistItems(res.data))
         .catch((err) => console.error('Failed to load wishlist:', err));
     }
   }, [userId]);
 
   const addToWishlist = (product) => {
-    axios.post('http://localhost:5000/add', { userId, product })
+    api.post('/add', { userId, product })
       .then((res) => {
         setWishlistItems(res.data);
         toast.success('Added to wishlist');
@@ -28,7 +28,7 @@ export const WishlistProvider = ({ children, userId }) => {
   };
 
   const removeFromWishlist = (productId) => {
-    axios.post('http://localhost:5000/remove', { userId, productId })
+    api.post('/remove', { userId, productId })
       .then((res) => {
         setWishlistItems(res.data);
         toast.success('Removed from wishlist');

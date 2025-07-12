@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import api from '../api';
 import { WishlistProvider } from './WishlistContext';
 
 const AppInitializer = ({ children }) => {
@@ -7,7 +7,7 @@ const AppInitializer = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    axios.get('http://localhost:5000/auth-status', { withCredentials: true }) // important: send cookies
+    api.get('/auth-status', { withCredentials: true }) // important: send cookies
       .then(res => {
         if (res.data.isAuthenticated && res.data.userId) {
           setUserId(res.data.userId);

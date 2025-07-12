@@ -4,7 +4,7 @@ import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
 import { useCallback } from 'react';
 import { toast } from 'react-toastify';
-import axios from 'axios';
+import api from '../api';
 
 const Header = () => {
     const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
@@ -21,7 +21,7 @@ const Header = () => {
 
     const updateAuthStatus = useCallback(async () => {
       try {
-        const response = await axios.get('http://localhost:5000/auth-status', {
+        const response = await api.get('/auth-status', {
           withCredentials: true,
         });
 
@@ -98,7 +98,7 @@ const Header = () => {
       event.stopPropagation();
       event.preventDefault();
       try {
-        await axios.post('http://localhost:5000/logout', {}, { withCredentials: true });
+        await api.post('/logout', {}, { withCredentials: true });
         setIsAuthenticated(false);
         setUsername(null);
         setUserId(null);

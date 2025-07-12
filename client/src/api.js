@@ -1,10 +1,10 @@
-const API_BASE = process.env.REACT_APP_API_URL;
+import axios from 'axios';
 
-export const login = async (email, password) => {
-  const response = await fetch(`${API_BASE}/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  });
-  return await response.json();
-};
+const API = process.env.REACT_APP_API_URL;
+
+const api = axios.create({
+  baseURL: API,
+  withCredentials: true // Always include cookies (for auth)
+});
+
+export default api;
