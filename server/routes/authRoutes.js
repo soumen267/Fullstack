@@ -7,6 +7,7 @@ const jwt = require('jsonwebtoken');
 // Login
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
+  const isProduction = process.env.NODE_ENV === 'production';
   try {
     const user = await User.findOne({ email });
     if (!user) return res.status(400).send('Cannot find user');
@@ -18,8 +19,8 @@ router.post('/login', async (req, res) => {
 
     res.cookie('token', token, {
       httpOnly: true,
-      secure: false,
-      sameSite: 'Lax',
+      secure: isProduction,
+      sameSite: isProduction ? 'None' : 'Lax',
       maxAge: 86400000
     });
 
